@@ -4,6 +4,10 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Count
+from django.db.models.functions import TruncMonth
+from django.utils import timezone
+from datetime import timedelta
 from .models import Flat, Room, Bed, Tenant
 from .serializers import FlatSerializer, RoomSerializer, BedSerializer, TenantSerializer
 
@@ -207,3 +211,58 @@ class DashboardView(APIView):
             dashboard_data.append(flat_summary)
 
         return Response(dashboard_data)
+
+
+class OccupancyTrendView(APIView):
+    """
+    Returns monthly trend data for the past N months (default 12).
+    Each point: { month, new_tenants, cumulative_tenants, occupied_beds }
+    Query param: ?months=3|6|12
+    """
+    def get(self, request):
+        months = int(request.query_params.get('months', 12))
+        months = max(1, min(months, 24))  # clamp 1–24
+
+        today = timezone.localdate()
+        # start of the first month in the window
+        start_date = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
+        for _ in range(months - 1):
+            start_date = (start_date - timedelta(days=1)).replace(day=1)
+
+        # Monthly new-tenant counts
+        monthly_qs = (
+            Tenant.objects
+            .filter(joined_at__gte=start_date)
+            .annotate(month=TruncMonth('joined_at'))
+            .values('month')
+            .annotate(new_tenants=Count('id'))
+            .order_by('month')
+        )
+        monthly_map = {
+            entry['month'].strftime('%Y-%m'): entry['new_tenants']
+            for entry in monthly_qs
+        }
+
+        # Tenants who joined BEFORE the window (baseline for cumulative)
+        baseline = Tenant.objects.filter(joined_at__lt=start_date).count()
+
+        # Build full month-by-month series
+        result = []
+        cumulative = baseline
+        current = start_date
+        for _ in range(months):
+            key = current.strftime('%Y-%m')
+            label = current.strftime('%b %Y')
+            new_t = monthly_map.get(key, 0)
+            cumulative += new_t
+            result.append({
+                'month': label,
+                'new_tenants': new_t,
+                'cumulative_tenants': cumulative,
+                'occupied_beds': Bed.objects.filter(status='occupied').count()  # current snapshot
+            })
+            # advance to next month
+            next_month = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
+            current = next_month
+
+        return Response(result)

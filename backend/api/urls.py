@@ -1,6 +1,6 @@
 
 from django.urls import path
-from .views import FlatViewSet, RoomViewSet, BedViewSet, TenantViewSet, DashboardView
+from .views import FlatViewSet, RoomViewSet, BedViewSet, TenantViewSet, DashboardView, OccupancyTrendView
 
 app_name = 'api'
 
@@ -18,6 +18,7 @@ tenant_detail = TenantViewSet.as_view({'patch': 'partial_update', 'delete': 'des
 
 urlpatterns = [
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
+    path('occupancy-trend/', OccupancyTrendView.as_view(), name='occupancy-trend'),
     path('flats/', flat_list, name='flat-list'),
     path('flats/<int:pk>/', flat_detail, name='flat-detail'),
     path('flats/<int:flat_pk>/rooms/', room_list, name='flat-rooms'),

@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 class Flat(models.Model):
     name = models.CharField(max_length=255)
@@ -40,6 +41,7 @@ class Tenant(models.Model):
     phone = models.CharField(max_length=20)
     photo = models.ImageField(upload_to='tenants/', null=True, blank=True)
     bed = models.OneToOneField(Bed, on_delete=models.SET_NULL, null=True, blank=True, related_name='tenant')
+    joined_at = models.DateField(default=timezone.localdate)
 
     def __str__(self):
         return self.name
