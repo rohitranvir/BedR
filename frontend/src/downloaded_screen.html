@@ -1,0 +1,43 @@
+# BedR Admin Panel – UI Design Document
+## Overview
+The BedR Admin Panel is a clean, functional interface for managing a hierarchical property system:
+Flat → Room → Bed → Tenant
+
+The panel prioritizes data integrity, operational clarity, and error transparency over visual complexity. Every design decision serves the goal of making CRUD operations fast, predictable, and correct.
+
+## Design Principles
+- **Hierarchy Visibility:** Parent-child relationships (Flat → Room → Bed → Tenant) must always be apparent.
+- **Clarity Over Aesthetics:** Neutral, low-distraction UI.
+- **Minimal Interaction Steps:** Every CRUD operation must complete in ≤ 3 clicks.
+- **Error Transparency:** Validation errors appear inline, immediately.
+- **Consistency:** Same layout patterns and color conventions across all sections.
+- **Status at a Glance:** Bed/occupancy status uses consistent badge colors.
+
+## Visual Design Language
+### Color Palette
+- Background: #F8F9FA
+- Surface: #FFFFFF
+- Border: #E2E8F0
+- Text Primary: #1A202C
+- Text Secondary: #64748B
+- Accent: #2563EB
+- Gold: #D97706
+- Danger: #DC2626
+- Success: #16A34A
+- Warning: #D97706
+
+### Status Badges
+- Available: background: #DCFCE7, text: #16A34A (green)
+- Occupied: background: #FEE2E2, text: #DC2626 (red)
+- Maintenance: background: #FEF9C3, text: #D97706 (yellow/amber)
+
+### Typography
+- Headings: 600 weight, #1A202C
+- Body / Table: 400 weight, 14–15px, #1A202C
+- Helper / Labels: 12–13px, #64748B
+- Monospace: system stack
+
+### Spacing & Shape
+- Border radius: 8px (cards, inputs, badges), 6px (buttons)
+- Card shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)
+- Sidebar: 240px wide, #1E293B (dark slate) background.

@@ -1,6 +1,3 @@
-"""
-api/views.py — BedR API views
-"""
 
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
@@ -17,7 +14,7 @@ class FlatViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         flat = self.get_object()
-        # Rule 5: Deleting a Flat: check if any of its beds have an assigned tenant.
+        # can't delete a flat while people are still living in it
         if Tenant.objects.filter(bed__room__flat=flat).exists():
             return Response(
                 {"detail": "Cannot delete flat. One or more beds in this flat currently have assigned tenants."}, 
@@ -38,7 +35,7 @@ class RoomViewSet(viewsets.ModelViewSet):
         return qs
 
     def create(self, request, *args, **kwargs):
-        # Auto-inject flat_pk into payload if missing, accommodating nested routing POST /flats/<id>/rooms/
+        # DRF nested routing doesn't set the parent FK on the payload for us
         data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
         flat_pk = self.kwargs.get('flat_pk')
         if flat_pk and 'flat' not in data:
@@ -68,7 +65,7 @@ class BedViewSet(viewsets.ModelViewSet):
         return qs
 
     def create(self, request, *args, **kwargs):
-        # Auto-inject room_pk into payload if missing for nested POST /rooms/<id>/beds/
+        # same as above — manually carry room_pk into the payload
         data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
         room_pk = self.kwargs.get('room_pk')
         if room_pk and 'room' not in data:
@@ -79,7 +76,7 @@ class BedViewSet(viewsets.ModelViewSet):
         
         room = serializer.validated_data['room']
         
-        # Rule 1: Creating a bed: check if room's current bed count has reached max_capacity.
+        # hard stop — don't let beds exceed what the room was configured for
         if room.beds.count() >= room.max_capacity:
             return Response(
                 {"detail": f"Room '{room.name}' has reached its maximum capacity of {room.max_capacity} beds."}, 
@@ -97,7 +94,7 @@ class TenantViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         tenant = self.get_object()
-        # Rule 6: Deleting a Tenant: check if they have an active bed assignment.
+        # force unassign before delete so beds don't get stuck as 'occupied'
         if tenant.bed is not None:
             return Response(
                 {"detail": "Cannot delete tenant because they still have an active bed assignment. Please unassign the bed first."}, 
@@ -114,10 +111,7 @@ class TenantViewSet(viewsets.ModelViewSet):
         self._handle_bed_assignment(serializer)
 
     def _handle_bed_assignment(self, serializer):
-        """
-        Handles Rules 2, 3, and 4 regarding bed availability logic when a tenant is created/updated.
-        """
-        # If body doesn't contain 'bed' (e.g. PATCH to only change phone number), just save.
+
         if 'bed' not in serializer.validated_data:
             serializer.save()
             return
@@ -126,12 +120,12 @@ class TenantViewSet(viewsets.ModelViewSet):
         instance = serializer.instance
         old_bed = instance.bed if instance else None
         
-        # If bed hasn't changed, just save.
+
         if new_bed == old_bed:
             serializer.save()
             return
             
-        # Rule 4: Removing a tenant's bed assignment
+        # tenant is being unassigned — free up the old bed
         if new_bed is None:
             if old_bed:
                 old_bed.status = 'available'
@@ -139,18 +133,18 @@ class TenantViewSet(viewsets.ModelViewSet):
             serializer.save()
             return
             
-        # Rule 2a, 2b: Assigning a new bed — validation
+        # reject the assignment if the bed isn't free
         if new_bed.status == 'occupied':
             raise ValidationError({"detail": "Cannot assign tenant to this bed because it is currently occupied."})
         if new_bed.status == 'maintenance':
             raise ValidationError({"detail": "Cannot assign tenant to this bed because it is currently under maintenance."})
             
-        # Rule 2c: If tenant already has a bed, mark old bed as 'available'
+        # moving to a new bed — release the previous one
         if old_bed:
             old_bed.status = 'available'
             old_bed.save()
             
-        # Rule 3: When assigning a bed successfully, set the new bed status to 'occupied'
+        # lock the new bed so nobody else can grab it
         new_bed.status = 'occupied'
         new_bed.save()
         

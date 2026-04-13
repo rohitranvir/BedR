@@ -1,31 +1,32 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback } from 'react';
 
-const ToastContext = createContext(null);
+const ToastCtx = createContext(null);
 
-export const ToastProvider = ({ children }) => {
+export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
   const showToast = useCallback((message, type = 'success') => {
-    const id = Date.now();
+    const id = Date.now() + Math.random();
     setToasts(prev => [...prev, { id, message, type }]);
-    
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 3000);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3200);
   }, []);
 
   return (
-    <ToastContext.Provider value={showToast}>
+    <ToastCtx.Provider value={showToast}>
       {children}
       <div className="toast-container">
-        {toasts.map(toast => (
-          <div key={toast.id} className={`toast ${toast.type}`}>
-            {toast.type === 'success' ? '✓' : '⚠️'} {toast.message}
+        {toasts.map(t => (
+          <div key={t.id} className={`toast ${t.type}`}>
+            <div className="toast-icon">
+              {t.type === 'success' ? '✓' : '✕'}
+            </div>
+            <span style={{ flex: 1 }}>{t.message}</span>
+            <div className="toast-progress" />
           </div>
         ))}
       </div>
-    </ToastContext.Provider>
+    </ToastCtx.Provider>
   );
-};
+}
 
-export const useToast = () => useContext(ToastContext);
+export const useToast = () => useContext(ToastCtx);

@@ -1,270 +1,309 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
-import LoadingSpinner from '../components/LoadingSpinner';
-import ErrorMessage from '../components/ErrorMessage';
-import ConfirmDialog from '../components/ConfirmDialog';
+import { SkeletonRow } from '../components/Skeleton';
 import SlideInPanel from '../components/SlideInPanel';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/ToastContext';
 
-function Tenants() {
+function initials(name) {
+  return name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '??';
+}
+
+export default function Tenants() {
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
-  
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [isAssignPanelOpen, setIsAssignPanelOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', phone: '' });
-  const [formErrors, setFormErrors] = useState(null);
-  const [globalError, setGlobalError] = useState(null);
-  
-  const [assigningTenantId, setAssigningTenantId] = useState(null);
+  const [formErrors, setFormErrors] = useState({});
+  const [deleteId, setDeleteId] = useState(null);
+  const [assigningTenant, setAssigningTenant] = useState(null);
   const [availableBeds, setAvailableBeds] = useState([]);
   const [selectedBedId, setSelectedBedId] = useState('');
-  const [deleteId, setDeleteId] = useState(null);
-
+  const [bedsLoading, setBedsLoading] = useState(false);
   const showToast = useToast();
 
-  useEffect(() => {
-    fetchTenants();
-  }, []);
+  useEffect(() => { fetchTenants(); }, []);
 
   const fetchTenants = () => {
     api.get('/tenants/')
-      .then(res => {
-        setTenants(res.data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setGlobalError("Failed to fetch tenants.");
-        setLoading(false);
-      });
+      .then(res => { setTenants(res.data); setLoading(false); })
+      .catch(() => setLoading(false));
+  };
+
+  const openAddPanel = () => {
+    setFormData({ name: '', phone: '' });
+    setFormErrors({});
+    setIsPanelOpen(true);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    setFormErrors(null);
-    setGlobalError(null);
+    const errors = {};
+    if (!formData.name.trim()) errors.name = 'Full name is required';
+    if (!formData.phone.trim()) errors.phone = 'Phone number is required';
+    if (Object.keys(errors).length) { setFormErrors(errors); return; }
 
     api.post('/tenants/', formData)
       .then(res => {
-        setTenants([...tenants, res.data]);
-        setFormData({ name: '', phone: '' });
+        setTenants(prev => [...prev, res.data]);
         setIsPanelOpen(false);
-        showToast('Tenant injected successfully');
+        showToast('Tenant registered successfully');
       })
       .catch(err => {
-        if (err.response && err.response.status === 400) {
-          const detail = err.response.data.detail || err.response.data.error;
-          if (detail && typeof detail === 'string') {
-             setGlobalError(detail);
-             showToast(detail, 'error');
-          } else {
-             setFormErrors(err.response.data);
-          }
-        } else {
-          setGlobalError("An unexpected error occurred while creating the tenant.");
-        }
+        if (err.response?.status === 400) setFormErrors(err.response.data);
+        else showToast('Failed to add tenant', 'error');
       });
   };
 
   const confirmDelete = () => {
-    if (!deleteId) return;
-    setGlobalError(null);
     api.delete(`/tenants/${deleteId}/`)
-      .then(() => {
-        setTenants(tenants.filter(t => t.id !== deleteId));
-        setDeleteId(null);
-        showToast('Tenant permanently dropped');
-      })
+      .then(() => { setTenants(t => t.filter(x => x.id !== deleteId)); setDeleteId(null); showToast('Tenant removed'); })
       .catch(err => {
         setDeleteId(null);
-        if (err.response && err.response.status === 400) {
-          const errorMsg = err.response.data.detail || err.response.data.error || err.response.data[0] || "Cannot delete tenant with active assignments.";
-          setGlobalError(errorMsg);
-          showToast(errorMsg, 'error');
-        } else {
-          setGlobalError("Failed to delete tenant.");
-          showToast('Deletion failed', 'error');
-        }
+        showToast(err.response?.data?.detail || 'Unassign the bed first before deleting.', 'error');
       });
   };
 
-  const handleUnassign = (tenantId) => {
-    setGlobalError(null);
-    api.patch(`/tenants/${tenantId}/`, { bed: null })
-      .then(() => {
-         fetchTenants();
-         showToast('Bed safely de-allocated');
-      })
-      .catch(err => {
-        const detail = err.response?.data?.detail || err.response?.data?.error || err.message;
-        setGlobalError("Failed to unassign bed: " + detail);
-        showToast('De-allocation error', 'error');
-      });
-  };
-
-  const startAssigning = (tenantId) => {
-    setGlobalError(null);
-    setAssigningTenantId(tenantId);
+  const openAssignPanel = (tenant) => {
+    setAssigningTenant(tenant);
     setSelectedBedId('');
-    
+    setAvailableBeds([]);
+    setBedsLoading(true);
+    setIsAssignPanelOpen(true);
     api.get('/beds/?status=available')
-       .then(res => setAvailableBeds(res.data))
-       .catch(err => {
-          console.error(err);
-          setAvailableBeds([]);
-          setGlobalError("Failed to load available beds.");
-       });
+      .then(res => { setAvailableBeds(res.data); setBedsLoading(false); })
+      .catch(() => setBedsLoading(false));
   };
 
   const commitAssign = () => {
-    if (!selectedBedId) {
-      setAssigningTenantId(null);
-      return;
-    }
-    setGlobalError(null);
-    
-    api.patch(`/tenants/${assigningTenantId}/`, { bed: selectedBedId })
-      .then(() => {
-        setAssigningTenantId(null);
-        fetchTenants();
-        showToast('Tenant node securely locked to Bed');
-      })
-      .catch(err => {
-        const detail = err.response?.data?.detail || err.response?.data?.error || err.message;
-        setGlobalError("Failed to assign bed: " + detail);
-        showToast('Allocation blocked internally', 'error');
-        setAssigningTenantId(null);
-      });
+    if (!selectedBedId) { showToast('Please select a bed', 'error'); return; }
+    api.patch(`/tenants/${assigningTenant.id}/`, { bed: parseInt(selectedBedId) })
+      .then(() => { setIsAssignPanelOpen(false); setAssigningTenant(null); fetchTenants(); showToast('Bed assigned successfully'); })
+      .catch(err => showToast(err.response?.data?.detail || 'Failed to assign bed', 'error'));
+  };
+
+  const handleUnassign = (tenantId) => {
+    api.patch(`/tenants/${tenantId}/`, { bed: null })
+      .then(() => { fetchTenants(); showToast('Bed unassigned'); })
+      .catch(() => showToast('Failed to unassign bed', 'error'));
   };
 
   return (
-    <div className="animate-fade-in relative">
+    <div className="animate-page" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {deleteId && (
-        <ConfirmDialog 
-          message="Are you sure you want to delete this tenant data?" 
-          onConfirm={confirmDelete} 
-          onCancel={() => setDeleteId(null)} 
+        <ConfirmDialog
+          title="Remove Tenant"
+          message="This will permanently delete the tenant record. Make sure they are unassigned from their bed first."
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteId(null)}
         />
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <h1 className="page-title" style={{ fontSize: '1.5rem', fontWeight: 600, margin: 0 }}>Active Integrations (Tenants)</h1>
-        <button className="btn-header" onClick={() => setIsPanelOpen(true)}>
-          + Map Tenant Profile
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.03em' }}>Tenants</h1>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+            {loading ? '—' : `${tenants.length} registered tenant${tenants.length !== 1 ? 's' : ''}`}
+          </p>
+        </div>
+        <button className="btn-header" onClick={openAddPanel}>
+          <span style={{ fontSize: '1rem', lineHeight: 1, marginRight: '2px' }}>+</span> Add Tenant
         </button>
       </div>
 
-      <ErrorMessage message={globalError} onDismiss={() => setGlobalError(null)} />
+      {/* Table */}
+      <div className="glass-flat" style={{ borderRadius: 'var(--r-xl)', overflow: 'hidden' }}>
+        <div className="table-section">
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Bed</th>
+                  <th>Room</th>
+                  <th>Flat</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  [1,2,3,4].map(i => <SkeletonRow key={i} cols={6} />)
+                ) : tenants.length === 0 ? (
+                  <tr><td colSpan={6}>
+                    <div className="empty-state">
+                      <div className="empty-icon-wrap">👤</div>
+                      <div className="empty-title">No tenants yet</div>
+                      <div className="empty-sub">Register a tenant and assign them to an available bed.</div>
+                    </div>
+                  </td></tr>
+                ) : tenants.map(tenant => {
+                  const bed = tenant.bed;
+                  return (
+                    <tr key={tenant.id}>
+                      {/* Name */}
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                          <div className="avatar">{initials(tenant.name)}</div>
+                          <div>
+                            <div className="td-name">{tenant.name}</div>
+                          </div>
+                        </div>
+                      </td>
 
-      {/* Slide-in Form Panel */}
-      <SlideInPanel title="Register Integration Profile" isOpen={isPanelOpen} onClose={() => setIsPanelOpen(false)}>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Tenant Full Alias</label>
-            <input 
-              required
-              placeholder="e.g. John Doe" 
+                      {/* Phone */}
+                      <td>
+                        <span style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          {tenant.phone}
+                        </span>
+                      </td>
+
+                      {/* Bed */}
+                      <td>
+                        {bed ? (
+                          <span className="badge occupied">{bed.name || `Bed ${bed.id}`}</span>
+                        ) : (
+                          <span className="td-muted">Unassigned</span>
+                        )}
+                      </td>
+
+                      {/* Room */}
+                      <td>
+                        {bed?.room_name || bed?.room?.name
+                          ? <span className="td-secondary">{bed?.room_name || bed?.room?.name}</span>
+                          : <span className="td-muted">—</span>
+                        }
+                      </td>
+
+                      {/* Flat */}
+                      <td>
+                        {bed?.flat_name || bed?.room?.flat?.name
+                          ? <span className="td-secondary">{bed?.flat_name || bed?.room?.flat?.name}</span>
+                          : <span className="td-muted">—</span>
+                        }
+                      </td>
+
+                      {/* Actions */}
+                      <td className="td-actions">
+                        {bed ? (
+                          <button className="btn-action warning" onClick={() => handleUnassign(tenant.id)}>
+                            Unassign Bed
+                          </button>
+                        ) : (
+                          <button className="btn-action success" onClick={() => openAssignPanel(tenant)}>
+                            Assign Bed
+                          </button>
+                        )}
+                        <button className="btn-action danger" onClick={() => setDeleteId(tenant.id)}>
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* ADD TENANT PANEL */}
+      <SlideInPanel
+        isOpen={isPanelOpen}
+        onClose={() => setIsPanelOpen(false)}
+        title="Register New Tenant"
+        subtitle="Add a resident to assign them to a bed"
+      >
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div className="form-group">
+            <label className="form-label">Full Name</label>
+            <input
+              placeholder="e.g. Rohit Kumar"
               value={formData.name}
-              onChange={e => setFormData({...formData, name: e.target.value})}
-              style={{ borderColor: formErrors?.name ? 'var(--danger)' : 'var(--border)' }}
+              onChange={e => setFormData({ ...formData, name: e.target.value })}
+              className={formErrors.name ? 'error' : ''}
             />
-            {formErrors?.name && <div style={{ color: 'var(--danger)', fontSize: '0.8rem', marginTop: '0.5rem' }}>{formErrors.name}</div>}
+            {formErrors.name && <div className="form-error">⚠ {formErrors.name}</div>}
           </div>
-          
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Encrypted Comm Link (Phone)</label>
-            <input 
-              required
-              placeholder="e.g. +1 555-0192" 
-              value={formData.phone}
-              onChange={e => setFormData({...formData, phone: e.target.value})}
-              style={{ borderColor: formErrors?.phone ? 'var(--danger)' : 'var(--border)' }}
-            />
-            {formErrors?.phone && <div style={{ color: 'var(--danger)', fontSize: '0.8rem', marginTop: '0.5rem' }}>{formErrors.phone}</div>}
-          </div>
-          
-          <button type="submit" className="btn-primary" style={{ marginTop: '1rem' }}>
-            Compile Tenant Object
-          </button>
 
-          {formErrors?.detail && <div style={{ color: 'var(--danger)', fontSize: '0.9rem', marginTop: '0.5rem' }}>{formErrors.detail}</div>}
-          {formErrors?.non_field_errors && <div style={{ color: 'var(--danger)', fontSize: '0.9rem', marginTop: '0.5rem' }}>{formErrors.non_field_errors}</div>}
+          <div className="form-group">
+            <label className="form-label">Phone Number</label>
+            <input
+              placeholder="e.g. +91 98765 43210"
+              value={formData.phone}
+              onChange={e => setFormData({ ...formData, phone: e.target.value })}
+              className={formErrors.phone ? 'error' : ''}
+            />
+            {formErrors.phone && <div className="form-error">⚠ {formErrors.phone}</div>}
+          </div>
+
+          <div style={{
+            padding: '0.75rem 1rem',
+            background: 'rgba(124,58,237,0.06)',
+            border: '1px solid rgba(124,58,237,0.15)',
+            borderRadius: 'var(--r-md)',
+            fontSize: '0.78rem',
+            color: 'var(--purple-light)',
+          }}>
+            💡 After registering, use the <strong>Assign Bed</strong> button in the table to link them to an available bed.
+          </div>
+
+          <button type="submit" className="btn-primary">Register Tenant</button>
         </form>
       </SlideInPanel>
 
-      {/* Table of Tenants */}
-      <div className="table-wrapper">
-        <h2 className="table-title">Network Directory</h2>
-        <div style={{ overflowX: 'auto' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Profile Identifier</th>
-                <th>Comm String</th>
-                <th>Linked Hardware (Bed)</th>
-                <th>Linked Sector (Room)</th>
-                <th>Linked Root (Flat)</th>
-                <th>Action Matrix</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan="6"><LoadingSpinner text="Connecting arrays..." /></td></tr>
-              ) : tenants.length === 0 ? (
-                <tr><td colSpan="6"><div className="empty-state"><div className="empty-icon">👤</div>Zero nodes detected. Register someone.</div></td></tr>
-              ) : (
-                tenants.map(tenant => (
-                  <tr key={tenant.id}>
-                    <td style={{ fontWeight: 600, color: 'var(--text-main)' }}>{tenant.name}</td>
-                    <td style={{ color: 'var(--text-muted)', fontFamily: 'monospace' }}>{tenant.phone}</td>
-                    
-                    <td>{tenant.bed ? (tenant.bed.name || `Bed ${tenant.bed}`) : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Orphaned</span>}</td>
-                    <td>{tenant.bed?.room_name || tenant.bed?.room?.name || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>--</span>}</td>
-                    <td>{tenant.bed?.flat_name || tenant.bed?.room?.flat?.name || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>--</span>}</td>
+      {/* ASSIGN BED PANEL */}
+      <SlideInPanel
+        isOpen={isAssignPanelOpen}
+        onClose={() => { setIsAssignPanelOpen(false); setAssigningTenant(null); }}
+        title="Assign Bed"
+        subtitle={assigningTenant ? `Assigning to: ${assigningTenant.name}` : ''}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div className="form-group">
+            <label className="form-label">Select Available Bed</label>
+            {bedsLoading ? (
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading available beds...</div>
+            ) : availableBeds.length === 0 ? (
+              <div style={{
+                padding: '1rem',
+                background: 'var(--danger-bg)',
+                border: '1px solid rgba(239,68,68,0.2)',
+                borderRadius: 'var(--r-md)',
+                fontSize: '0.82rem',
+                color: '#f87171'
+              }}>
+                No available beds at the moment. Mark a bed as available from the Beds page first.
+              </div>
+            ) : (
+              <select
+                value={selectedBedId}
+                onChange={e => setSelectedBedId(e.target.value)}
+              >
+                <option value="">— Choose a bed —</option>
+                {availableBeds.map(b => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} (Room {b.room})
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
 
-                    <td style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                      {tenant.bed ? (
-                        <button onClick={() => handleUnassign(tenant.id)} className="btn-action warning">
-                          Unlink Block
-                        </button>
-                      ) : (
-                        <div style={{ position: 'relative', display: 'inline-block' }}>
-                          {assigningTenantId === tenant.id ? (
-                            <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(0,0,0,0.4)', padding: '0.25rem', borderRadius: '8px', border: '1px solid var(--accent)' }}>
-                              <select 
-                                value={selectedBedId}
-                                onChange={e => setSelectedBedId(e.target.value)}
-                                style={{ padding: '0.35rem', borderRadius: '4px', background: 'transparent', color: '#fff', border: 'none', borderRight: '1px solid var(--border)' }}
-                              >
-                                <option value="" style={{ background: 'var(--surface)' }}>Select Hardware...</option>
-                                {availableBeds.map(b => (
-                                  <option key={b.id} value={b.id} style={{ background: 'var(--surface)' }}>{b.name} ({b.room_name || b.room})</option>
-                                ))}
-                              </select>
-                              <button onClick={commitAssign} style={{ background: 'transparent', color: 'var(--success)', border: 'none', padding: '0 0.5rem', fontWeight: 'bold', cursor: 'pointer' }}>✓</button>
-                              <button onClick={() => setAssigningTenantId(null)} style={{ background: 'transparent', color: 'var(--danger)', border: 'none', padding: '0 0.5rem', fontWeight: 'bold', cursor: 'pointer' }}>✕</button>
-                            </div>
-                          ) : (
-                            <button onClick={() => startAssigning(tenant.id)} className="btn-action success">
-                              Locate Bed
-                            </button>
-                          )}
-                        </div>
-                      )}
-
-                      <button onClick={() => setDeleteId(tenant.id)} className="btn-action danger">
-                        <span style={{ fontSize: '0.9rem', lineHeight: 1 }}>✕</span> Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+          {availableBeds.length > 0 && (
+            <button
+              className="btn-primary"
+              onClick={commitAssign}
+              disabled={!selectedBedId}
+              style={{ opacity: selectedBedId ? 1 : 0.5 }}
+            >
+              Confirm Assignment
+            </button>
+          )}
         </div>
-      </div>
+      </SlideInPanel>
     </div>
   );
 }
-
-export default Tenants;
