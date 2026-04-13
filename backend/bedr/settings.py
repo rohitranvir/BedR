@@ -1,23 +1,21 @@
-
 from pathlib import Path
 import os
 from dotenv import load_dotenv
-import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / '.env')
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key-change-in-production')
+SECRET_KEY = os.getenv('SECRET_KEY')  # Must be set in Render env vars — no fallback
 
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
+DEBUG = os.getenv('DEBUG', 'False') == 'True'  # Defaults to False in production
 
-ALLOWED_HOSTS = ['*']
-CORS_ALLOWED_ORIGINS = [
-    "https://your-app.vercel.app",
-]
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost').split(',')
+# On Render, set: ALLOWED_HOSTS=bedr-api.onrender.com
 
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+# ✅ Use ONLY this — remove CORS_ALLOW_ALL_ORIGINS entirely
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173').split(',')
+# On Render, set: CORS_ALLOWED_ORIGINS=https://bedr.vercel.app
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -32,8 +30,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',        # Must be first
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',   # ✅ Add this for static files
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -61,7 +60,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'bedr.wsgi.application'
 
-# Supabase drops the connection without SSL
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -91,8 +89,6 @@ REST_FRAMEWORK = {
     ],
 }
 
-CORS_ALLOW_ALL_ORIGINS = True
-
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -106,7 +102,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = BASE_DIR / 'staticfiles'          # ✅ Only defined once
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'  # ✅ Whitenoise
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'

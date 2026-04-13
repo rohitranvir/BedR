@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+/* Fonts loaded via <link> in index.html — Inter + JetBrains Mono */
 
 /* LUXURY DESIGN TOKENS */
 :root {
@@ -48,6 +48,38 @@
 
   /* Transition */
   --ease: all 0.15s ease-in-out;
+}
+
+/* ── GLOBAL TYPOGRAPHY ─────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--bg-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+code, pre, kbd, samp, .code-block {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* SCROLLBAR */
@@ -113,14 +145,14 @@
 }
 
 .logo-text {
-  font-size: 1.4rem;
-  font-weight: 700;
+  font-size: 1.1rem;
+  font-weight: 600;
   color: white;
   line-height: 1;
 }
 
 .logo-version {
-  font-size: 0.62rem;
+  font-size: 12px;
   color: var(--text-muted);
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -138,9 +170,9 @@
 }
 
 .nav-section-label {
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-muted);
   padding: 0.75rem 0.75rem 0.35rem;
@@ -154,8 +186,9 @@
   border-radius: var(--r-md);
   color: var(--sidebar-text-muted);
   text-decoration: none;
+  font-family: 'Inter', sans-serif;
   font-weight: 500;
-  font-size: 0.875rem;
+  font-size: 14px;
   transition: var(--ease);
   position: relative;
 }
@@ -199,7 +232,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.72rem;
+  font-size: 13px;
   color: var(--text-muted);
 }
 
@@ -244,8 +277,9 @@
 .top-bar-left { display: flex; flex-direction: column; gap: 0.12rem; }
 
 .page-title {
-  font-size: 1.05rem;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
   letter-spacing: -0.02em;
   color: var(--text);
 }
@@ -254,7 +288,7 @@
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.76rem;
+  font-size: 13px;
   color: var(--text-muted);
 }
 
@@ -352,23 +386,24 @@
 }
 
 .stat-label {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
   margin-bottom: 0.4rem;
 }
 
-/* Large gold-tinted stat numbers */
+/* Large stat numbers */
 .stat-value {
   font-size: 2rem;
   font-weight: 600;
+  line-height: 1.2;
   color: var(--text);
 }
 
 .stat-sub {
-  font-size: 0.7rem;
+  font-size: 13px;
   color: var(--text-muted);
   margin-top: 0.3rem;
 }
@@ -398,14 +433,15 @@
 }
 
 .section-title {
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
   color: var(--text);
 }
 
 .section-count {
-  font-size: 0.72rem;
+  font-size: 12px;
   color: var(--text-muted);
   background: rgba(109,40,217,0.1);
   border: 1px solid rgba(109,40,217,0.2);
@@ -419,14 +455,15 @@ table {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 0.875rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
 }
 
 thead th {
   padding: 0 1rem 0.85rem;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
@@ -457,9 +494,9 @@ tbody tr:hover td:first-child {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
-.td-name { font-weight: 600; color: var(--text); }
-.td-secondary { color: var(--text-sec); font-size: 0.82rem; }
-.td-muted { color: var(--text-muted); font-style: italic; font-size: 0.82rem; }
+.td-name { font-weight: 600; font-size: 14px; color: var(--text); }
+.td-secondary { color: var(--text-sec); font-size: 13px; }
+.td-muted { color: var(--text-muted); font-style: italic; font-size: 13px; }
 .td-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 
 /* PROPERTY / ROOM / BED CARDS */
@@ -491,8 +528,8 @@ tbody tr:hover td:first-child {
   flex-shrink: 0;
 }
 
-.prop-card-name { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.02em; color: var(--text); line-height: 1.3; }
-.prop-card-address { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem; line-height: 1.5; }
+.prop-card-name { font-size: 15px; font-weight: 500; letter-spacing: -0.01em; color: var(--text); line-height: 1.3; }
+.prop-card-address { font-size: 13px; color: var(--text-muted); margin-top: 0.2rem; line-height: 1.6; }
 .prop-card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
 
 .room-cards-grid {
@@ -502,8 +539,8 @@ tbody tr:hover td:first-child {
 }
 
 .room-card { padding: 1.4rem; display: flex; flex-direction: column; gap: 1rem; }
-.room-card-name { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
-.room-card-cap { font-size: 0.78rem; color: var(--text-sec); }
+.room-card-name { font-size: 15px; font-weight: 500; letter-spacing: -0.01em; color: var(--text); line-height: 1.3; }
+.room-card-cap { font-size: 13px; color: var(--text-sec); }
 
 .bed-cards-grid {
   display: grid;
@@ -512,7 +549,7 @@ tbody tr:hover td:first-child {
 }
 
 .bed-card { padding: 1.25rem; display: flex; flex-direction: column; gap: 0.85rem; }
-.bed-card-name { font-size: 1rem; font-weight: 700; }
+.bed-card-name { font-size: 15px; font-weight: 500; line-height: 1.3; }
 
 /* BADGES / CHIPS */
 .badge {
@@ -521,9 +558,10 @@ tbody tr:hover td:first-child {
   gap: 0.35rem;
   padding: 0.22rem 0.65rem;
   border-radius: var(--r-full);
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
   text-transform: capitalize;
   white-space: nowrap;
 }
@@ -559,8 +597,9 @@ tbody tr:hover td:first-child {
   gap: 0.3rem;
   padding: 0.18rem 0.58rem;
   border-radius: var(--r-full);
-  font-size: 0.68rem;
-  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -591,8 +630,9 @@ tbody tr:hover td:first-child {
   background: var(--accent);
   color: #fff;
   border: none;
+  font-family: 'Inter', sans-serif;
   font-weight: 500;
-  font-size: 0.875rem;
+  font-size: 14px;
   cursor: pointer;
   transition: var(--ease);
 }
@@ -617,8 +657,9 @@ tbody tr:hover td:first-child {
   background: var(--accent);
   color: #fff;
   border: none;
+  font-family: 'Inter', sans-serif;
   font-weight: 500;
-  font-size: 0.875rem;
+  font-size: 14px;
   cursor: pointer;
   transition: var(--ease);
 }
@@ -656,13 +697,13 @@ tbody tr:hover td:first-child {
   gap: 0.35rem;
   padding: 0.32rem 0.85rem;
   border-radius: var(--r-full);
-  font-size: 0.76rem;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   border: 1px solid transparent;
   transition: var(--ease);
   text-decoration: none;
-  font-family: inherit;
+  font-family: 'Inter', sans-serif;
   line-height: 1;
   white-space: nowrap;
   letter-spacing: 0.01em;
@@ -686,10 +727,10 @@ tbody tr:hover td:first-child {
 .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
 
 .form-label {
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--text-sec);
-  letter-spacing: 0.07em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
@@ -699,8 +740,8 @@ input, select, textarea {
   border-radius: var(--r-md);
   padding: 0.7rem 1rem;
   color: var(--text);
-  font-size: 0.875rem;
-  font-family: inherit;
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
   transition: var(--ease);
   outline: none;
   width: 100%;
@@ -757,8 +798,8 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   background: rgba(109,40,217,0.04);
 }
 
-.slide-title { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
-.slide-subtitle { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.12rem; }
+.slide-title { font-size: 15px; font-weight: 500; line-height: 1.3; letter-spacing: -0.01em; color: var(--text); }
+.slide-subtitle { font-size: 13px; color: var(--text-muted); margin-top: 0.12rem; }
 
 .slide-close {
   width: 32px; height: 32px;
@@ -813,8 +854,8 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   font-size: 1.4rem;
 }
 
-.modal-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 0.4rem; }
-.modal-message { font-size: 0.875rem; color: var(--text-sec); line-height: 1.6; }
+.modal-title { font-size: 18px; font-weight: 500; line-height: 1.3; color: var(--text); margin-bottom: 0.4rem; }
+.modal-message { font-size: 14px; color: var(--text-sec); line-height: 1.6; }
 .modal-actions { display: flex; gap: 0.75rem; }
 
 .modal-cancel {
@@ -823,8 +864,9 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   background: rgba(255,255,255,0.05);
   border: 1px solid var(--border);
   color: var(--text-sec);
-  font-weight: 600; font-size: 0.875rem;
-  cursor: pointer; transition: var(--ease); font-family: inherit;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500; font-size: 14px;
+  cursor: pointer; transition: var(--ease);
 }
 .modal-cancel:hover { background: rgba(255,255,255,0.09); color: var(--text); border-color: var(--border-bright); }
 
@@ -834,9 +876,9 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   background: var(--danger);
   border: none;
   color: #fff;
-  font-weight: 700; font-size: 0.875rem;
-  cursor: pointer; transition: var(--ease); font-family: inherit;
-  
+  font-family: 'Inter', sans-serif;
+  font-weight: 600; font-size: 14px;
+  cursor: pointer; transition: var(--ease);
 }
 .modal-confirm:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
@@ -853,7 +895,8 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   display: flex; align-items: center; gap: 0.75rem;
   padding: 0.85rem 1.25rem;
   border-radius: var(--r-lg);
-  font-weight: 500; font-size: 0.875rem;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500; font-size: 14px;
   animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: auto;
   position: relative; overflow: hidden;
@@ -930,8 +973,8 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   font-size: 2rem; margin-bottom: 0.5rem;
 }
 
-.empty-title { font-size: 1rem; font-weight: 700; color: var(--text-sec); }
-.empty-sub { font-size: 0.8rem; color: var(--text-muted); max-width: 260px; line-height: 1.6; }
+.empty-title { font-size: 15px; font-weight: 500; color: var(--text-sec); }
+.empty-sub { font-size: 13px; color: var(--text-muted); max-width: 260px; line-height: 1.6; }
 
 /* MAP */
 .leaflet-container {
@@ -957,7 +1000,7 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 .leaflet-popup-tip { background: var(--bg-card) !important; }
 
 .map-hint {
-  font-size: 0.72rem;
+  font-size: 13px;
   color: var(--text-muted);
   display: flex; align-items: center; gap: 0.4rem;
   padding: 0.38rem 0.75rem;
