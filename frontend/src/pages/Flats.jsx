@@ -233,7 +233,7 @@ export default function Flats() {
   const [flats, setFlats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
-  const [formData, setFormData] = useState({ name: '', address: '' });
+  const [formData, setFormData] = useState({ name: '', address: '', commission_rate: '' });
   const [formErrors, setFormErrors] = useState({});
   const [deleteId, setDeleteId] = useState(null);
   const [pin, setPin] = useState(null);
@@ -248,7 +248,7 @@ export default function Flats() {
   };
 
   const openPanel = () => {
-    setFormData({ name: '', address: '' });
+    setFormData({ name: '', address: '', commission_rate: '' });
     setFormErrors({});
     setPin(null);
     setFlyTarget(null);
@@ -263,7 +263,7 @@ export default function Flats() {
     if (!formData.address.trim()) errors.address = 'Address is required';
     if (Object.keys(errors).length) { setFormErrors(errors); return; }
 
-    const payload = { ...formData };
+    const payload = { ...formData, commission_rate: formData.commission_rate || 0 };
     if (pin) { payload.lat = pin[0]; payload.lng = pin[1]; }
 
     api.post('/flats/', payload)
@@ -332,6 +332,7 @@ export default function Flats() {
               <div className="prop-card-icon">🏢</div>
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.2rem' }}>
                 <span className="pill purple">{flat.rooms?.length || 0} rooms</span>
+                <span className="pill blue">{flat.commission_rate}% fee</span>
               </div>
             </div>
             <div>
@@ -388,6 +389,21 @@ export default function Flats() {
               className={formErrors.address ? 'error' : ''}
             />
             {formErrors.address && <div className="form-error">⚠ {formErrors.address}</div>}
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Agency Commission Rate (%)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              placeholder="e.g. 10"
+              value={formData.commission_rate}
+              onChange={e => setFormData({ ...formData, commission_rate: e.target.value })}
+              className={formErrors.commission_rate ? 'error' : ''}
+            />
+            {formErrors.commission_rate && <div className="form-error">⚠ {formErrors.commission_rate}</div>}
           </div>
 
           {/* MAP */}

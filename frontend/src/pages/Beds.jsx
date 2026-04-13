@@ -19,7 +19,7 @@ export default function Beds() {
   const [beds, setBeds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
-  const [formData, setFormData] = useState({ name: '' });
+  const [formData, setFormData] = useState({ name: '', price: '' });
   const [formErrors, setFormErrors] = useState({});
   const [deleteId, setDeleteId] = useState(null);
   const showToast = useToast();
@@ -37,7 +37,7 @@ export default function Beds() {
   }, [id, fetchBeds]);
 
   const openPanel = () => {
-    setFormData({ name: '' });
+    setFormData({ name: '', price: '' });
     setFormErrors({});
     setIsPanelOpen(true);
   };
@@ -45,6 +45,7 @@ export default function Beds() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.name.trim()) { setFormErrors({ name: 'Bed name is required' }); return; }
+    if (!formData.price || isNaN(formData.price)) { setFormErrors({ price: 'Valid price is required' }); return; }
     api.post(`/rooms/${id}/beds/`, formData)
       .then(res => { setBeds(prev => [...prev, res.data]); setIsPanelOpen(false); showToast('Bed added successfully'); })
       .catch(err => {
@@ -122,7 +123,12 @@ export default function Beds() {
             <div key={bed.id} className="glass bed-card" style={{ borderRadius: 'var(--r-xl)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div className="bed-card-name">🛏 {bed.name}</div>
-                <span className={`badge ${meta.cls}`}>{meta.label}</span>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--success)' }}>
+                    ${parseFloat(bed.price || 0).toFixed(2)}
+                  </span>
+                  <span className={`badge ${meta.cls}`}>{meta.label}</span>
+                </div>
               </div>
 
               {bed.tenant ? (
@@ -135,14 +141,25 @@ export default function Beds() {
                   alignItems: 'center',
                   gap: '0.6rem'
                 }}>
-                  <div style={{
-                    width: 28, height: 28, borderRadius: '50%',
-                    background: 'linear-gradient(135deg, var(--purple), var(--blue))',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '0.7rem', fontWeight: 700, color: '#fff', flexShrink: 0
-                  }}>
-                    {bed.tenant.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase()}
-                  </div>
+                  {bed.tenant.photo ? (
+                    <img 
+                      src={bed.tenant.photo} 
+                      alt={bed.tenant.name} 
+                      style={{ 
+                        width: 50, height: 50, borderRadius: 'var(--r-md)', 
+                        objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 
+                      }} 
+                    />
+                  ) : (
+                    <div style={{
+                      width: 50, height: 50, borderRadius: 'var(--r-md)',
+                      background: 'linear-gradient(135deg, var(--purple), var(--blue))',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '1rem', fontWeight: 700, color: '#fff', flexShrink: 0
+                    }}>
+                      {bed.tenant.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase()}
+                    </div>
+                  )}
                   <div>
                     <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text)' }}>{bed.tenant.name}</div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{bed.tenant.phone}</div>
@@ -191,6 +208,19 @@ export default function Beds() {
               className={formErrors.name ? 'error' : ''}
             />
             {formErrors.name && <div className="form-error">⚠ {formErrors.name}</div>}
+          </div>
+          <div className="form-group">
+            <label className="form-label">Monthly Rent Amount ($)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="e.g. 500"
+              value={formData.price}
+              onChange={e => setFormData({ ...formData, price: e.target.value })}
+              className={formErrors.price ? 'error' : ''}
+            />
+            {formErrors.price && <div className="form-error">⚠ {formErrors.price}</div>}
           </div>
           <div style={{
             padding: '0.75rem 1rem',

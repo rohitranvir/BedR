@@ -19,27 +19,20 @@ BedR is a premium real estate and tenant property management dashboard. It uses 
 
 ### 1. Backend (Django)
 ```bash
-# In the root repository directory
 
-# 1. Create a virtual environment
 python -m venv venv
-source venv/Scripts/activate  # (Windows) or source venv/bin/activate (Mac/Linux)
+source venv/Scripts/activate  
 
-# 2. Install Dependencies
 pip install -r requirements.txt
 
-# 3. Create .env file with your PostgreSQL credentials (see Environment Variables section)
 
-# 4. Migrate Database
 python manage.py makemigrations
 python manage.py migrate
 
-# 5. Create Superuser (Required for Admin DB access)
 python manage.py createsuperuser
 
-# 6. Run Server
 python manage.py runserver
-# Server launches on http://127.0.0.1:8000
+
 ```
 
 ### 2. Frontend (React)

@@ -14,7 +14,7 @@ export default function Tenants() {
   const [loading, setLoading] = useState(true);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [isAssignPanelOpen, setIsAssignPanelOpen] = useState(false);
-  const [formData, setFormData] = useState({ name: '', phone: '' });
+  const [formData, setFormData] = useState({ name: '', phone: '', photo: null });
   const [formErrors, setFormErrors] = useState({});
   const [deleteId, setDeleteId] = useState(null);
   const [assigningTenant, setAssigningTenant] = useState(null);
@@ -32,7 +32,7 @@ export default function Tenants() {
   };
 
   const openAddPanel = () => {
-    setFormData({ name: '', phone: '' });
+    setFormData({ name: '', phone: '', photo: null });
     setFormErrors({});
     setIsPanelOpen(true);
   };
@@ -42,9 +42,15 @@ export default function Tenants() {
     const errors = {};
     if (!formData.name.trim()) errors.name = 'Full name is required';
     if (!formData.phone.trim()) errors.phone = 'Phone number is required';
+    if (!formData.photo) errors.photo = 'Identity photo is required';
     if (Object.keys(errors).length) { setFormErrors(errors); return; }
 
-    api.post('/tenants/', formData)
+    const payload = new FormData();
+    payload.append('name', formData.name);
+    payload.append('phone', formData.phone);
+    if (formData.photo) payload.append('photo', formData.photo);
+
+    api.post('/tenants/', payload, { headers: { 'Content-Type': 'multipart/form-data' } })
       .then(res => {
         setTenants(prev => [...prev, res.data]);
         setIsPanelOpen(false);
@@ -146,7 +152,11 @@ export default function Tenants() {
                       {/* Name */}
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                          <div className="avatar">{initials(tenant.name)}</div>
+                          {tenant.photo ? (
+                            <img src={tenant.photo} alt={tenant.name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }} />
+                          ) : (
+                            <div className="avatar">{initials(tenant.name)}</div>
+                          )}
                           <div>
                             <div className="td-name">{tenant.name}</div>
                           </div>
@@ -239,6 +249,21 @@ export default function Tenants() {
             {formErrors.phone && <div className="form-error">⚠ {formErrors.phone}</div>}
           </div>
 
+          <div className="form-group">
+            <label className="form-label">Identity Photo (Required)</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={e => setFormData({ ...formData, photo: e.target.files[0] })}
+              className={formErrors.photo ? 'error' : ''}
+              style={{
+                fontSize: '0.82rem', padding: '0.4rem', border: '1px solid var(--border)',
+                borderRadius: 'var(--r-md)', background: 'var(--bg-card)'
+              }}
+            />
+            {formErrors.photo && <div className="form-error">⚠ {formErrors.photo}</div>}
+          </div>
+
           <div style={{
             padding: '0.75rem 1rem',
             background: 'rgba(124,58,237,0.06)',
@@ -285,7 +310,7 @@ export default function Tenants() {
                 <option value="">— Choose a bed —</option>
                 {availableBeds.map(b => (
                   <option key={b.id} value={b.id}>
-                    {b.name} (Room {b.room})
+                    Bed: {b.name} — Room: {b.room_name || b.room} 
                   </option>
                 ))}
               </select>

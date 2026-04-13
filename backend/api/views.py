@@ -160,14 +160,22 @@ class DashboardView(APIView):
             flat_summary = {
                 "flat_id": flat.id,
                 "flat_name": flat.name,
+                "address": flat.address,
                 "total_beds": 0,
                 "occupied_beds": 0,
+                "potential_revenue": 0.0,
+                "actual_revenue": 0.0,
+                "commission_rate": float(flat.commission_rate),
                 "rooms": []
             }
 
             for room in flat.rooms.all():
-                room_total_beds = room.beds.count()
-                room_occupied_beds = room.beds.filter(status='occupied').count()
+                room_beds = room.beds.all()
+                room_total_beds = room_beds.count()
+                room_occupied_beds = room_beds.filter(status='occupied').count()
+                
+                room_potential = sum(bed.price for bed in room_beds)
+                room_actual = sum(bed.price for bed in room_beds if bed.status == 'occupied')
                 
                 if room_total_beds > 0:
                     room_percentage = (room_occupied_beds / room_total_beds) * 100
@@ -179,11 +187,15 @@ class DashboardView(APIView):
                     "room_name": room.name,
                     "total_beds": room_total_beds,
                     "occupied_beds": room_occupied_beds,
-                    "occupancy_percentage": round(room_percentage, 2)
+                    "occupancy_percentage": round(room_percentage, 2),
+                    "potential_revenue": float(room_potential),
+                    "actual_revenue": float(room_actual)
                 })
 
                 flat_summary['total_beds'] += room_total_beds
                 flat_summary['occupied_beds'] += room_occupied_beds
+                flat_summary['potential_revenue'] += float(room_potential)
+                flat_summary['actual_revenue'] += float(room_actual)
 
             if flat_summary['total_beds'] > 0:
                 flat_percentage = (flat_summary['occupied_beds'] / flat_summary['total_beds']) * 100
@@ -191,6 +203,7 @@ class DashboardView(APIView):
                 flat_percentage = 0
             
             flat_summary['occupancy_percentage'] = round(flat_percentage, 2)
+            flat_summary['commission_earned'] = round(flat_summary['actual_revenue'] * (flat_summary['commission_rate'] / 100), 2)
             dashboard_data.append(flat_summary)
 
         return Response(dashboard_data)
