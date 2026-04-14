@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { useData } from '../components/DataContext';
 import api from '../api';
 import { SkeletonRow } from '../components/Skeleton';
 import SlideInPanel from '../components/SlideInPanel';
@@ -9,9 +10,81 @@ function initials(name) {
   return name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '??';
 }
 
+const MemoizedTenantRow = memo(({ tenant, openAssignPanel, handleUnassign, setDeleteId }) => {
+  const bed = tenant.bed;
+  return (
+    <tr>
+      {/* Name */}
+      <td>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          {tenant.photo ? (
+            <img src={tenant.photo} alt={tenant.name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }} />
+          ) : (
+            <div className="avatar">{initials(tenant.name)}</div>
+          )}
+          <div>
+            <div className="td-name">{tenant.name}</div>
+          </div>
+        </div>
+      </td>
+
+      {/* Phone */}
+      <td>
+        <span style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+          {tenant.phone}
+        </span>
+      </td>
+
+      {/* Bed */}
+      <td>
+        {bed ? (
+          <span className="badge occupied">{bed.name || `Bed ${bed.id}`}</span>
+        ) : (
+          <span className="td-muted">Unassigned</span>
+        )}
+      </td>
+
+      {/* Room */}
+      <td>
+        {bed?.room_name || bed?.room?.name
+          ? <span className="td-secondary">{bed?.room_name || bed?.room?.name}</span>
+          : <span className="td-muted">—</span>
+        }
+      </td>
+
+      {/* Flat */}
+      <td>
+        {bed?.flat_name || bed?.room?.flat?.name
+          ? <span className="td-secondary">{bed?.flat_name || bed?.room?.flat?.name}</span>
+          : <span className="td-muted">—</span>
+        }
+      </td>
+
+      {/* Actions */}
+      <td className="td-actions">
+        {bed ? (
+          <button className="btn-action warning" onClick={() => handleUnassign(tenant.id)}>
+            Unassign Bed
+          </button>
+        ) : (
+          <button className="btn-action success" onClick={() => openAssignPanel(tenant)}>
+            Assign Bed
+          </button>
+        )}
+        <button className="btn-action danger" onClick={() => setDeleteId(tenant.id)}>
+          Delete
+        </button>
+      </td>
+    </tr>
+  );
+});
+
 export default function Tenants() {
-  const [tenants, setTenants] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { fetchWithCache, getCachedData, invalidateCache } = useData();
+
+  const hasLoadedOnce = useRef(!!getCachedData('/tenants/'));
+  const [tenants, setTenants] = useState(getCachedData('/tenants/') || []);
+  const [loading, setLoading] = useState(!hasLoadedOnce.current);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [isAssignPanelOpen, setIsAssignPanelOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', phone: '', photo: null });
@@ -23,21 +96,25 @@ export default function Tenants() {
   const [bedsLoading, setBedsLoading] = useState(false);
   const showToast = useToast();
 
-  useEffect(() => { fetchTenants(); }, []);
-
-  const fetchTenants = () => {
-    api.get('/tenants/')
-      .then(res => { setTenants(res.data); setLoading(false); })
+  const fetchTenants = useCallback(() => {
+    fetchWithCache('/tenants/', '/tenants/')
+      .then(res => { 
+        setTenants(res); 
+        hasLoadedOnce.current = true;
+        setLoading(false); 
+      })
       .catch(() => setLoading(false));
-  };
+  }, [fetchWithCache]);
 
-  const openAddPanel = () => {
+  useEffect(() => { fetchTenants(); }, [fetchTenants]);
+
+  const openAddPanel = useCallback(() => {
     setFormData({ name: '', phone: '', photo: null });
     setFormErrors({});
     setIsPanelOpen(true);
-  };
+  }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = useCallback((e) => {
     e.preventDefault();
     const errors = {};
     if (!formData.name.trim()) errors.name = 'Full name is required';
@@ -54,24 +131,30 @@ export default function Tenants() {
       .then(res => {
         setTenants(prev => [...prev, res.data]);
         setIsPanelOpen(false);
+        invalidateCache('/tenants/');
         showToast('Tenant registered successfully');
       })
       .catch(err => {
         if (err.response?.status === 400) setFormErrors(err.response.data);
         else showToast('Failed to add tenant', 'error');
       });
-  };
+  }, [formData, invalidateCache, showToast]);
 
-  const confirmDelete = () => {
+  const confirmDelete = useCallback(() => {
     api.delete(`/tenants/${deleteId}/`)
-      .then(() => { setTenants(t => t.filter(x => x.id !== deleteId)); setDeleteId(null); showToast('Tenant removed'); })
+      .then(() => { 
+        setTenants(t => t.filter(x => x.id !== deleteId)); 
+        setDeleteId(null); 
+        invalidateCache('/tenants/');
+        showToast('Tenant removed'); 
+      })
       .catch(err => {
         setDeleteId(null);
         showToast(err.response?.data?.detail || 'Unassign the bed first before deleting.', 'error');
       });
-  };
+  }, [deleteId, invalidateCache, showToast]);
 
-  const openAssignPanel = (tenant) => {
+  const openAssignPanel = useCallback((tenant) => {
     setAssigningTenant(tenant);
     setSelectedBedId('');
     setAvailableBeds([]);
@@ -80,20 +163,20 @@ export default function Tenants() {
     api.get('/beds/?status=available')
       .then(res => { setAvailableBeds(res.data); setBedsLoading(false); })
       .catch(() => setBedsLoading(false));
-  };
+  }, []);
 
-  const commitAssign = () => {
+  const commitAssign = useCallback(() => {
     if (!selectedBedId) { showToast('Please select a bed', 'error'); return; }
     api.patch(`/tenants/${assigningTenant.id}/`, { bed: parseInt(selectedBedId) })
-      .then(() => { setIsAssignPanelOpen(false); setAssigningTenant(null); fetchTenants(); showToast('Bed assigned successfully'); })
+      .then(() => { setIsAssignPanelOpen(false); setAssigningTenant(null); invalidateCache('/tenants/'); fetchTenants(); showToast('Bed assigned successfully'); })
       .catch(err => showToast(err.response?.data?.detail || 'Failed to assign bed', 'error'));
-  };
+  }, [selectedBedId, assigningTenant, invalidateCache, fetchTenants, showToast]);
 
-  const handleUnassign = (tenantId) => {
+  const handleUnassign = useCallback((tenantId) => {
     api.patch(`/tenants/${tenantId}/`, { bed: null })
-      .then(() => { fetchTenants(); showToast('Bed unassigned'); })
+      .then(() => { invalidateCache('/tenants/'); fetchTenants(); showToast('Bed unassigned'); })
       .catch(() => showToast('Failed to unassign bed', 'error'));
-  };
+  }, [invalidateCache, fetchTenants, showToast]);
 
   return (
     <div className="animate-page" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -108,7 +191,7 @@ export default function Tenants() {
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
+        <div className="hide-on-mobile">
           <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.03em' }}>Tenants</h1>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
             {loading ? '—' : `${tenants.length} registered tenant${tenants.length !== 1 ? 's' : ''}`}
@@ -145,74 +228,15 @@ export default function Tenants() {
                       <div className="empty-sub">Register a tenant and assign them to an available bed.</div>
                     </div>
                   </td></tr>
-                ) : tenants.map(tenant => {
-                  const bed = tenant.bed;
-                  return (
-                    <tr key={tenant.id}>
-                      {/* Name */}
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                          {tenant.photo ? (
-                            <img src={tenant.photo} alt={tenant.name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }} />
-                          ) : (
-                            <div className="avatar">{initials(tenant.name)}</div>
-                          )}
-                          <div>
-                            <div className="td-name">{tenant.name}</div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Phone */}
-                      <td>
-                        <span style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                          {tenant.phone}
-                        </span>
-                      </td>
-
-                      {/* Bed */}
-                      <td>
-                        {bed ? (
-                          <span className="badge occupied">{bed.name || `Bed ${bed.id}`}</span>
-                        ) : (
-                          <span className="td-muted">Unassigned</span>
-                        )}
-                      </td>
-
-                      {/* Room */}
-                      <td>
-                        {bed?.room_name || bed?.room?.name
-                          ? <span className="td-secondary">{bed?.room_name || bed?.room?.name}</span>
-                          : <span className="td-muted">—</span>
-                        }
-                      </td>
-
-                      {/* Flat */}
-                      <td>
-                        {bed?.flat_name || bed?.room?.flat?.name
-                          ? <span className="td-secondary">{bed?.flat_name || bed?.room?.flat?.name}</span>
-                          : <span className="td-muted">—</span>
-                        }
-                      </td>
-
-                      {/* Actions */}
-                      <td className="td-actions">
-                        {bed ? (
-                          <button className="btn-action warning" onClick={() => handleUnassign(tenant.id)}>
-                            Unassign Bed
-                          </button>
-                        ) : (
-                          <button className="btn-action success" onClick={() => openAssignPanel(tenant)}>
-                            Assign Bed
-                          </button>
-                        )}
-                        <button className="btn-action danger" onClick={() => setDeleteId(tenant.id)}>
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                ) : tenants.map(tenant => (
+                  <MemoizedTenantRow 
+                    key={tenant.id} 
+                    tenant={tenant} 
+                    openAssignPanel={openAssignPanel} 
+                    handleUnassign={handleUnassign} 
+                    setDeleteId={setDeleteId} 
+                  />
+                ))}
               </tbody>
             </table>
           </div>

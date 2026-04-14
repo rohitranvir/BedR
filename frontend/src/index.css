@@ -97,6 +97,22 @@ pre {
 }
 
 /* SIDEBAR */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  z-index: 90;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar-overlay.show {
+  display: block;
+  opacity: 1;
+}
+
 .sidebar {
   width: var(--sidebar-w);
   background: var(--sidebar-bg);
@@ -105,8 +121,11 @@ pre {
   flex-direction: column;
   position: fixed;
   top: 0; bottom: 0; left: 0;
-  z-index: 100;
+  height: 100vh;
+  z-index: 200;
   color: var(--sidebar-text);
+  overflow: hidden;
+  transition: transform 0.3s ease;
 }
 
 /* Purple gradient stripe at the top of sidebar */
@@ -226,6 +245,7 @@ pre {
 .sidebar-footer {
   padding: 1rem 1.5rem 1.25rem;
   border-top: 1px solid var(--border);
+  margin-top: auto;
 }
 
 .sidebar-status {
@@ -264,7 +284,7 @@ pre {
 .top-bar {
   position: sticky;
   top: 0;
-  z-index: 50;
+  z-index: 100;
   padding: 1rem 2rem;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
@@ -274,7 +294,30 @@ pre {
   gap: 1rem;
 }
 
-.top-bar-left { display: flex; flex-direction: column; gap: 0.12rem; }
+.top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.page-header-text { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 0.12rem; 
+}
+
+.hamburger-btn {
+  display: none; /* hidden on desktop */
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0.25rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.hamburger-btn svg { width: 24px; height: 24px; }
 
 .page-title {
   font-size: 22px;
@@ -298,9 +341,18 @@ pre {
 
 .top-bar-right { display: flex; align-items: center; gap: 0.75rem; }
 
+.date-badge {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 0.35rem 0.75rem;
+  background: var(--surface, #f1f5f9);
+  border-radius: var(--r-full);
+  border: 1px solid var(--border);
+}
+
 .page-content {
   flex: 1;
-  padding: 2rem;
+  padding: 1.5rem 2rem;
   display: flex;
   flex-direction: column;
   gap: 1.75rem;
@@ -798,6 +850,145 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   background: rgba(109,40,217,0.04);
 }
 
+/* ───────────────────────────────────────────────────────────── 
+   RESPONSIVE (MOBILE-FIRST APPROACH & MEDIA QUERIES)
+   ───────────────────────────────────────────────────────────── */
+
+.hide-on-mobile { display: block; }
+.hide-on-desktop { display: none; }
+
+/* Desktop / Tablet rules already define standard view. We apply MAX-WIDTH media queries for mobile-first graceful degradation */
+
+@media (max-width: 768px) {
+  /* Bug 1: Allow flex-col wrap */
+  .app-layout {
+    flex-direction: column;
+  }
+
+  /* Sidebar handling */
+  .sidebar {
+    transform: translateX(-100%);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .main-content {
+    margin-left: 0;
+    width: 100vw;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+  .hamburger-btn {
+    display: flex;
+  }
+  .sidebar-overlay {
+    display: block;
+    pointer-events: none;
+    z-index: 150;
+  }
+  .sidebar-overlay.show {
+    pointer-events: auto;
+  }
+  
+  .hide-on-mobile { display: none !important; }
+  .hide-on-desktop { display: flex !important; }
+
+  /* Topbar */
+  .top-bar {
+    padding: 1rem;
+  }
+  .date-badge {
+    display: none; /* Hide date on mobile */
+  }
+  
+  /* Bug 2: Recharts scaling & card boundaries */
+  .page-content {
+    padding: 1rem;
+    gap: 1rem;
+    overflow-x: hidden;
+  }
+  .recharts-wrapper,
+  .recharts-surface {
+    width: 100% !important;
+    max-width: 100%;
+  }
+  .glass-flat {
+    width: 100%;
+    overflow: hidden;
+  }
+  
+  /* Typography scale-down */
+  .page-title {
+    font-size: 18px;
+  }
+  .stat-value {
+    font-size: 1.5rem;
+  }
+  
+  /* Bug 3: Stacked Stat Grids */
+  .stat-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.75rem;
+  }
+  .cards-grid {
+    grid-template-columns: 1fr;
+    padding: 0 16px;
+    width: 100%;
+  }
+  .room-cards-grid {
+    grid-template-columns: 1fr;
+    padding: 0 16px;
+    width: 100%;
+  }
+  .bed-cards-grid {
+    grid-template-columns: 1fr;
+    padding: 0 16px;
+    width: 100%;
+  }
+
+  /* Cards inner styling for mobile */
+  .prop-card-footer {
+    justify-content: space-between;
+  }
+
+  /* Bug 5: Gap reductions */
+  .animate-page {
+    gap: 1rem !important;
+  }
+
+  /* Tables */
+  .table-section {
+    padding: 1rem;
+  }
+  /* Table wrap provides overflow-x auto, so users can scroll horizontally */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -1rem; /* push to edge on mobile */
+    padding: 0 1rem;
+  }
+  
+  /* Slide panel full width */
+  .slide-panel {
+    width: 100vw;
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 .slide-title { font-size: 15px; font-weight: 500; line-height: 1.3; letter-spacing: -0.01em; color: var(--text); }
 .slide-subtitle { font-size: 13px; color: var(--text-muted); margin-top: 0.12rem; }
 
@@ -1040,42 +1231,4 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 
 .animate-page { animation: pageIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
 
-/* RESPONSIVE */
-@media (max-width: 768px) {
-  :root { --sidebar-w: 0px; }
-  .sidebar {
-  width: var(--sidebar-w);
-  background: var(--sidebar-bg);
-  border-right: 1px solid var(--sidebar-bg);
-  display: flex;
-  flex-direction: column;
-  position: fixed;
-  top: 0; bottom: 0; left: 0;
-  z-index: 100;
-  color: var(--sidebar-text);
-}
-  .main-content {
-  flex: 1;
-  margin-left: var(--sidebar-w);
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-primary);
-}
-  .page-content { padding: 1rem; }
-  .cards-grid { grid-template-columns: 1fr; }
-  .stat-grid { grid-template-columns: repeat(2, 1fr); }
-  .slide-panel { width: 100vw; }
-  .top-bar {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  padding: 1rem 2rem;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-}
+

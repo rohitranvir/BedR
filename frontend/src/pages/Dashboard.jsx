@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import api from '../api';
+import React, { useState, useEffect, useRef, memo } from 'react';
+import { useData } from '../components/DataContext';
 import { SkeletonStatCard, SkeletonRow } from '../components/Skeleton';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -41,7 +41,7 @@ function ProgressBar({ percent }) {
   );
 }
 
-function StatCard({ icon, label, value, sub, colorClass, isCurrency }) {
+const StatCard = memo(({ icon, label, value, sub, colorClass, isCurrency }) => {
   const animated = useCountUp(value);
   return (
     <div className="glass stat-card" style={{ borderRadius: 'var(--r-xl)' }}>
@@ -53,7 +53,7 @@ function StatCard({ icon, label, value, sub, colorClass, isCurrency }) {
       </div>
     </div>
   );
-}
+});
 
 // ── Custom line-chart tooltip ────────────────────────────────────
 function TrendTooltip({ active, payload, label }) {
@@ -105,30 +105,153 @@ function PeriodBtn({ label, active, onClick }) {
   );
 }
 
+const MemoizedTrendChart = memo(({ trendDataLabeled, trendMonths, maxCumulative }) => (
+  <ResponsiveContainer width="100%" height="100%">
+    <AreaChart data={trendDataLabeled} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+      <defs>
+        <linearGradient id="gradCumulative" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%"  stopColor="var(--accent)"  stopOpacity={0.18} />
+          <stop offset="95%" stopColor="var(--accent)"  stopOpacity={0} />
+        </linearGradient>
+        <linearGradient id="gradNew" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%"  stopColor="var(--success)" stopOpacity={0.15} />
+          <stop offset="95%" stopColor="var(--success)" stopOpacity={0} />
+        </linearGradient>
+      </defs>
+
+      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+
+      <XAxis
+        dataKey="month"
+        stroke="var(--text-sec)"
+        fontSize={12}
+        tickLine={false}
+        axisLine={false}
+        tick={{ fill: 'var(--text-muted)' }}
+        interval={trendMonths === 12 ? 1 : 0}
+      />
+      <YAxis
+        yAxisId="cumulative"
+        orientation="left"
+        stroke="var(--text-sec)"
+        fontSize={12}
+        tickLine={false}
+        axisLine={false}
+        tick={{ fill: 'var(--text-muted)' }}
+        domain={[0, Math.ceil(maxCumulative * 1.2) || 10]}
+        label={{ value: 'Total', angle: -90, position: 'insideLeft', fontSize: 11, fill: 'var(--text-muted)', dx: -4 }}
+      />
+      <YAxis
+        yAxisId="new"
+        orientation="right"
+        stroke="var(--text-sec)"
+        fontSize={12}
+        tickLine={false}
+        axisLine={false}
+        tick={{ fill: 'var(--text-muted)' }}
+        label={{ value: 'New', angle: 90, position: 'insideRight', fontSize: 11, fill: 'var(--text-muted)', dx: 4 }}
+      />
+
+      <Tooltip content={<TrendTooltip />} />
+
+      <Legend
+        iconType="circle"
+        iconSize={8}
+        wrapperStyle={{ fontSize: 13, paddingTop: 12 }}
+      />
+
+      <Area
+        yAxisId="cumulative"
+        type="monotone"
+        dataKey="cumulative_tenants"
+        name="Cumulative Tenants"
+        stroke="var(--accent)"
+        strokeWidth={2.5}
+        fill="url(#gradCumulative)"
+        dot={false}
+        activeDot={{ r: 5, fill: 'var(--accent)', stroke: '#fff', strokeWidth: 2 }}
+      />
+
+      <Area
+        yAxisId="new"
+        type="monotone"
+        dataKey="new_tenants"
+        name="New Tenants / Month"
+        stroke="var(--success)"
+        strokeWidth={2}
+        strokeDasharray="5 3"
+        fill="url(#gradNew)"
+        dot={false}
+        activeDot={{ r: 4, fill: 'var(--success)', stroke: '#fff', strokeWidth: 2 }}
+      />
+    </AreaChart>
+  </ResponsiveContainer>
+));
+
+const MemoizedRevenueChart = memo(({ chartData }) => (
+  <ResponsiveContainer width="100%" height="100%">
+    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+      <XAxis dataKey="name" stroke="var(--text-sec)" fontSize={12} tickLine={false} axisLine={false} />
+      <YAxis stroke="var(--text-sec)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
+      <Tooltip
+        cursor={{ fill: 'rgba(0,0,0,0.03)' }}
+        contentStyle={{ borderRadius: 'var(--r-md)', border: '1px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontFamily: "'Inter', sans-serif", fontSize: 13 }}
+      />
+      <Legend iconType="circle" wrapperStyle={{ fontSize: 13, paddingTop: 10 }} />
+      <Bar dataKey="Potential"  fill="#94A3B8"         radius={[4, 4, 0, 0]} maxBarSize={50} />
+      <Bar dataKey="Actual"     fill="var(--success)"  radius={[4, 4, 0, 0]} maxBarSize={50} />
+      <Bar dataKey="Commission" fill="var(--warning)"  radius={[4, 4, 0, 0]} maxBarSize={50} />
+    </BarChart>
+  </ResponsiveContainer>
+));
+
 // ── Main Dashboard ───────────────────────────────────────────────
 export default function Dashboard() {
-  const [data, setData]           = useState([]);
-  const [loading, setLoading]     = useState(true);
+  const { fetchWithCache, getCachedData } = useData();
+
+  const hasLoadedOnce = useRef(!!getCachedData('/dashboard/'));
+  const [data, setData]           = useState(getCachedData('/dashboard/') || []);
+  const [loading, setLoading]     = useState(!hasLoadedOnce.current);
   const [error, setError]         = useState(null);
 
-  const [trendData, setTrendData]     = useState([]);
+  const chartHeight = window.innerWidth < 768 ? 200 : 300;
+
   const [trendMonths, setTrendMonths] = useState(12);
-  const [trendLoading, setTrendLoading] = useState(true);
+  const trendEndpoint = `/occupancy-trend/?months=${trendMonths}`;
+  
+  const hasLoadedTrendOnce = useRef(!!getCachedData(trendEndpoint));
+  const [trendData, setTrendData]     = useState(getCachedData(trendEndpoint) || []);
+  const [trendLoading, setTrendLoading] = useState(!hasLoadedTrendOnce.current);
 
   // Fetch dashboard metrics
   useEffect(() => {
-    api.get('/dashboard/')
-      .then(res => { setData(res.data); setLoading(false); })
-      .catch(() => { setError('Failed to fetch dashboard metrics.'); setLoading(false); });
-  }, []);
+    fetchWithCache('/dashboard/', '/dashboard/')
+      .then(res => { 
+        setData(res); 
+        hasLoadedOnce.current = true;
+        setLoading(false); 
+      })
+      .catch(() => { 
+        setError('Failed to fetch dashboard metrics.'); 
+        setLoading(false); 
+      });
+  }, [fetchWithCache]);
 
   // Fetch trend data whenever period changes
   useEffect(() => {
-    setTrendLoading(true);
-    api.get(`/occupancy-trend/?months=${trendMonths}`)
-      .then(res => { setTrendData(res.data); setTrendLoading(false); })
+    // If we've never cached this specific endpoint period, we can show a loader,
+    // otherwise load silently in the background
+    if (!getCachedData(trendEndpoint)) setTrendLoading(true);
+    
+    fetchWithCache(trendEndpoint, trendEndpoint)
+      .then(res => { 
+        setTrendData(res); 
+        hasLoadedTrendOnce.current = true;
+        setTrendLoading(false); 
+      })
       .catch(() => setTrendLoading(false));
-  }, [trendMonths]);
+  }, [trendMonths, trendEndpoint, fetchWithCache, getCachedData]);
 
   if (error) return (
     <div className="glass-flat empty-state" style={{ borderRadius: 'var(--r-xl)', padding: '4rem' }}>
@@ -138,32 +261,35 @@ export default function Dashboard() {
     </div>
   );
 
-  const totalFlats    = data.length;
-  const totalBeds     = data.reduce((a, f) => a + f.total_beds, 0);
-  const totalOccupied = data.reduce((a, f) => a + f.occupied_beds, 0);
-  const globalOcc     = totalBeds > 0 ? +((totalOccupied / totalBeds) * 100).toFixed(1) : 0;
-  const potentialRev  = data.reduce((a, f) => a + (f.potential_revenue || 0), 0);
-  const actualRev     = data.reduce((a, f) => a + (f.actual_revenue || 0), 0);
-  const commission    = data.reduce((a, f) => a + (f.commission_earned || 0), 0);
+  const { totalFlats, totalBeds, totalOccupied, globalOcc, potentialRev, actualRev, commission } = React.useMemo(() => {
+    const totalFlats    = data.length;
+    const totalBeds     = data.reduce((a, f) => a + f.total_beds, 0);
+    const totalOccupied = data.reduce((a, f) => a + f.occupied_beds, 0);
+    const globalOcc     = totalBeds > 0 ? +((totalOccupied / totalBeds) * 100).toFixed(1) : 0;
+    const potentialRev  = data.reduce((a, f) => a + (f.potential_revenue || 0), 0);
+    const actualRev     = data.reduce((a, f) => a + (f.actual_revenue || 0), 0);
+    const commission    = data.reduce((a, f) => a + (f.commission_earned || 0), 0);
+    return { totalFlats, totalBeds, totalOccupied, globalOcc, potentialRev, actualRev, commission };
+  }, [data]);
 
-  const chartData = data.map(f => ({
+  const chartData = React.useMemo(() => data.map(f => ({
     name: f.flat_name.length > 15 ? f.flat_name.slice(0, 15) + '…' : f.flat_name,
     Potential: f.potential_revenue || 0,
     Actual: f.actual_revenue || 0,
     Commission: f.commission_earned || 0,
-  }));
+  })), [data]);
 
   // Thin out x-axis labels for 12-month view to avoid crowding
-  const trendDataLabeled = trendData.map((d, i) => ({
+  const trendDataLabeled = React.useMemo(() => trendData.map((d, i) => ({
     ...d,
     shortMonth: trendMonths <= 6
       ? d.month
       : i % 2 === 0 ? d.month : '',
-  }));
+  })), [trendData, trendMonths]);
 
-  const maxCumulative = trendData.length
+  const maxCumulative = React.useMemo(() => trendData.length
     ? Math.max(...trendData.map(d => d.cumulative_tenants))
-    : 10;
+    : 10, [trendData]);
 
   return (
     <div className="animate-page" style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
@@ -205,93 +331,12 @@ export default function Dashboard() {
         </div>
 
         {trendLoading ? (
-          <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+          <div style={{ height: chartHeight, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
             Loading trend data…
           </div>
         ) : (
-          <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer>
-              <AreaChart data={trendDataLabeled} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="gradCumulative" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="var(--accent)"  stopOpacity={0.18} />
-                    <stop offset="95%" stopColor="var(--accent)"  stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="gradNew" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="var(--success)" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="var(--success)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-
-                <XAxis
-                  dataKey="month"
-                  stroke="var(--text-sec)"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fill: 'var(--text-muted)' }}
-                  interval={trendMonths === 12 ? 1 : 0}
-                />
-                <YAxis
-                  yAxisId="cumulative"
-                  orientation="left"
-                  stroke="var(--text-sec)"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fill: 'var(--text-muted)' }}
-                  domain={[0, Math.ceil(maxCumulative * 1.2) || 10]}
-                  label={{ value: 'Total', angle: -90, position: 'insideLeft', fontSize: 11, fill: 'var(--text-muted)', dx: -4 }}
-                />
-                <YAxis
-                  yAxisId="new"
-                  orientation="right"
-                  stroke="var(--text-sec)"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fill: 'var(--text-muted)' }}
-                  label={{ value: 'New', angle: 90, position: 'insideRight', fontSize: 11, fill: 'var(--text-muted)', dx: 4 }}
-                />
-
-                <Tooltip content={<TrendTooltip />} />
-
-                <Legend
-                  iconType="circle"
-                  iconSize={8}
-                  wrapperStyle={{ fontSize: 13, paddingTop: 12 }}
-                />
-
-                {/* Cumulative tenants — smooth area + line */}
-                <Area
-                  yAxisId="cumulative"
-                  type="monotone"
-                  dataKey="cumulative_tenants"
-                  name="Cumulative Tenants"
-                  stroke="var(--accent)"
-                  strokeWidth={2.5}
-                  fill="url(#gradCumulative)"
-                  dot={false}
-                  activeDot={{ r: 5, fill: 'var(--accent)', stroke: '#fff', strokeWidth: 2 }}
-                />
-
-                {/* New tenants per month — secondary line */}
-                <Area
-                  yAxisId="new"
-                  type="monotone"
-                  dataKey="new_tenants"
-                  name="New Tenants / Month"
-                  stroke="var(--success)"
-                  strokeWidth={2}
-                  strokeDasharray="5 3"
-                  fill="url(#gradNew)"
-                  dot={false}
-                  activeDot={{ r: 4, fill: 'var(--success)', stroke: '#fff', strokeWidth: 2 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div style={{ width: '100%', height: chartHeight }}>
+            <MemoizedTrendChart trendDataLabeled={trendDataLabeled} trendMonths={trendMonths} maxCumulative={maxCumulative} />
           </div>
         )}
       </div>
@@ -302,22 +347,8 @@ export default function Dashboard() {
           <div className="section-header" style={{ marginBottom: '1rem' }}>
             <div className="section-title">Revenue &amp; Commission Insights</div>
           </div>
-          <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer>
-              <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                <XAxis dataKey="name" stroke="var(--text-sec)" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="var(--text-sec)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
-                <Tooltip
-                  cursor={{ fill: 'rgba(0,0,0,0.03)' }}
-                  contentStyle={{ borderRadius: 'var(--r-md)', border: '1px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontFamily: "'Inter', sans-serif", fontSize: 13 }}
-                />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: 13, paddingTop: 10 }} />
-                <Bar dataKey="Potential"  fill="#94A3B8"         radius={[4, 4, 0, 0]} maxBarSize={50} />
-                <Bar dataKey="Actual"     fill="var(--success)"  radius={[4, 4, 0, 0]} maxBarSize={50} />
-                <Bar dataKey="Commission" fill="var(--warning)"  radius={[4, 4, 0, 0]} maxBarSize={50} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div style={{ width: '100%', height: chartHeight }}>
+            <MemoizedRevenueChart chartData={chartData} />
           </div>
         </div>
       )}

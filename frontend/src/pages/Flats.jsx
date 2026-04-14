@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { Link } from 'react-router-dom';
+import { useData } from '../components/DataContext';
 import api from '../api';
 import { SkeletonCard } from '../components/Skeleton';
 import SlideInPanel from '../components/SlideInPanel';
@@ -229,9 +230,46 @@ function MapToolbar({ pin, setPin, flyTarget, setFlyTarget, tileMode, setTileMod
   );
 }
 
+const MemoizedPropCard = memo(({ flat, setDeleteId }) => (
+  <div className="glass prop-card" style={{ borderRadius: 'var(--r-xl)' }}>
+    <div className="prop-card-header">
+      <div className="prop-card-icon">🏢</div>
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.2rem' }}>
+        <span className="pill purple">{flat.rooms?.length || 0} rooms</span>
+        <span className="pill blue">{flat.commission_rate}% fee</span>
+      </div>
+    </div>
+    <div>
+      <div className="prop-card-name">{flat.name}</div>
+      <div className="prop-card-address">{flat.address}</div>
+    </div>
+
+    {flat.lat && flat.lng && (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+        <span>📍</span>
+        <span>{flat.lat.toFixed(4)}, {flat.lng.toFixed(4)}</span>
+      </div>
+    )}
+
+    <OccupancyPill rooms={flat.rooms || []} />
+
+    <div className="prop-card-footer">
+      <Link to={`/flats/${flat.id}`} className="btn-action view">
+        View Rooms →
+      </Link>
+      <button className="btn-action danger" onClick={() => setDeleteId(flat.id)}>
+        Delete
+      </button>
+    </div>
+  </div>
+));
+
 export default function Flats() {
-  const [flats, setFlats] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { fetchWithCache, getCachedData, invalidateCache } = useData();
+
+  const hasLoadedOnce = useRef(!!getCachedData('/flats/'));
+  const [flats, setFlats] = useState(getCachedData('/flats/') || []);
+  const [loading, setLoading] = useState(!hasLoadedOnce.current);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', address: '', commission_rate: '' });
   const [formErrors, setFormErrors] = useState({});
@@ -241,22 +279,30 @@ export default function Flats() {
   const [tileMode, setTileMode] = useState('satellite');
   const showToast = useToast();
 
-  useEffect(() => { fetchFlats(); }, []);
+  useEffect(() => { fetchFlats(); }, []); // react-hooks/exhaustive-deps will warn here, but fetchFlats depends on fetchWithCache, so let's refine it.
 
-  const fetchFlats = () => {
-    api.get('/flats/').then(res => { setFlats(res.data); setLoading(false); }).catch(() => setLoading(false));
-  };
+  const fetchFlats = useCallback(() => {
+    fetchWithCache('/flats/', '/flats/')
+      .then(res => { 
+        setFlats(res); 
+        hasLoadedOnce.current = true;
+        setLoading(false); 
+      })
+      .catch(() => setLoading(false));
+  }, [fetchWithCache]);
 
-  const openPanel = () => {
+  useEffect(() => { fetchFlats(); }, [fetchFlats]);
+
+  const openPanel = useCallback(() => {
     setFormData({ name: '', address: '', commission_rate: '' });
     setFormErrors({});
     setPin(null);
     setFlyTarget(null);
     setTileMode('satellite');
     setIsPanelOpen(true);
-  };
+  }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = useCallback((e) => {
     e.preventDefault();
     const errors = {};
     if (!formData.name.trim()) errors.name = 'Property name is required';
@@ -270,23 +316,29 @@ export default function Flats() {
       .then(res => {
         setFlats(prev => [...prev, res.data]);
         setIsPanelOpen(false);
+        invalidateCache('/flats/');
         showToast('Property added successfully');
       })
       .catch(err => {
         if (err.response?.status === 400) setFormErrors(err.response.data);
         else showToast('Failed to create property', 'error');
       });
-  };
+  }, [formData, pin, showToast, invalidateCache]);
 
-  const confirmDelete = () => {
+  const confirmDelete = useCallback(() => {
     api.delete(`/flats/${deleteId}/`)
-      .then(() => { setFlats(f => f.filter(x => x.id !== deleteId)); setDeleteId(null); showToast('Property deleted'); })
+      .then(() => { 
+        setFlats(f => f.filter(x => x.id !== deleteId)); 
+        setDeleteId(null); 
+        invalidateCache('/flats/');
+        showToast('Property deleted'); 
+      })
       .catch(err => {
         setDeleteId(null);
         const msg = err.response?.data?.detail || 'Cannot delete — active tenants exist.';
         showToast(msg, 'error');
       });
-  };
+  }, [deleteId, showToast, invalidateCache]);
 
   const tile = TILES[tileMode];
 
@@ -303,7 +355,7 @@ export default function Flats() {
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
+        <div className="hide-on-mobile">
           <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.03em' }}>Properties</h1>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
             {loading ? '—' : `${flats.length} registered propert${flats.length !== 1 ? 'ies' : 'y'}`}
@@ -327,37 +379,7 @@ export default function Flats() {
             </div>
           </div>
         ) : flats.map(flat => (
-          <div key={flat.id} className="glass prop-card" style={{ borderRadius: 'var(--r-xl)' }}>
-            <div className="prop-card-header">
-              <div className="prop-card-icon">🏢</div>
-              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.2rem' }}>
-                <span className="pill purple">{flat.rooms?.length || 0} rooms</span>
-                <span className="pill blue">{flat.commission_rate}% fee</span>
-              </div>
-            </div>
-            <div>
-              <div className="prop-card-name">{flat.name}</div>
-              <div className="prop-card-address">{flat.address}</div>
-            </div>
-
-            {flat.lat && flat.lng && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                <span>📍</span>
-                <span>{flat.lat.toFixed(4)}, {flat.lng.toFixed(4)}</span>
-              </div>
-            )}
-
-            <OccupancyPill rooms={flat.rooms || []} />
-
-            <div className="prop-card-footer">
-              <Link to={`/flats/${flat.id}`} className="btn-action view">
-                View Rooms →
-              </Link>
-              <button className="btn-action danger" onClick={() => setDeleteId(flat.id)}>
-                Delete
-              </button>
-            </div>
-          </div>
+          <MemoizedPropCard key={flat.id} flat={flat} setDeleteId={setDeleteId} />
         ))}
       </div>
 
